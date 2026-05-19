@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: nerve
+
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: llama3.2
+        options:
+          temperature: 0.1
+          num-predict: 2048
+          num-ctx : 4096
+
+server:
+  port: 8080
+
+# Custom nerve config
+nerve:
+  memory:
+    path: ./memory.json
