@@ -3,14 +3,15 @@ spring:
     name: nerve
 
   ai:
-    ollama:
-      base-url: http://localhost:11434
-      chat:
-        model: llama3.2
-        options:
-          temperature: 0.1
-          num-predict: 2048
-          num-ctx : 4096
+    google:
+      genai:
+        chat:
+          options:
+            model: gemini-3.1-flash-lite
+        api-key: ${GEMINI_API_KEY}
+    model:
+      chat: google-genai
+
 
 server:
   port: 8080
@@ -19,3 +20,5 @@ server:
 nerve:
   memory:
     path: ./memory.json
+  sandbox:
+    path: /Users/yash/nerve-sandbox/workspace

@@ -20,6 +20,9 @@ public class ConversationHistory {
     public void addAssistantMessage(String content){
         history.add(new AssistantMessage(content));
     }
+    public void clear(){
+        this.history.clear();
+    }
     public List<Message> getLastN(){
         int size=history.size();
         if(size<MAX_LEN){
