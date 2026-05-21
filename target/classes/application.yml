@@ -2,11 +2,11 @@ spring:
   datasource:
     url: jdbc:sqlite:aria.db
     driver-class-name: org.sqlite.JDBC
-    jpa:
-      database-platform: org.hibernate.community.dialect.SQLiteDialect
-      hibernate:
-        ddl-auto: update
-      show-sql: true
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
 
   application:
     name: nerve
