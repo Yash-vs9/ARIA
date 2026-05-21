@@ -1,5 +1,6 @@
 package com.yash.nerve.service;
 
+import com.yash.nerve.config.ChatContext;
 import com.yash.nerve.models.AgentRequest;
 
 import com.yash.nerve.models.Chat;
@@ -7,6 +8,7 @@ import com.yash.nerve.models.ChatMessage;
 import com.yash.nerve.models.Memory;
 import com.yash.nerve.repository.ChatRepository;
 import com.yash.nerve.tools.FileTools;
+import com.yash.nerve.tools.MemoryTool;
 import com.yash.nerve.tools.ShellTools;
 import com.yash.nerve.tools.SystemTools;
 import org.springframework.ai.chat.messages.Message;
@@ -36,34 +38,38 @@ public class LLMService {
     private final ConversationHistory conversationHistory;
     private final FileTools fileTools;
     private final ShellTools shellTools;
+    private final ChatContext chatContext;
     private final SystemTools systemTools;
     private final GmailService gmailService;
+    private final MemoryTool memoryTool;
     private final ChatRepository chatRepository;
     public LLMService(MemoryService memoryService,
                       ChatModel chatModel,
                       ConversationHistory conversationHistory,
                       FileTools fileTools,
-                      ShellTools shellTools,
-                      SystemTools systemTools, GmailService gmailService, ChatRepository chatRepository) {
+                      ShellTools shellTools, ChatContext chatContext,
+                      SystemTools systemTools, GmailService gmailService, MemoryTool memoryTool, ChatRepository chatRepository) {
         this.memoryService = memoryService;
         this.chatModel = chatModel;
         this.conversationHistory = conversationHistory;
         this.fileTools = fileTools;
         this.shellTools = shellTools;
+        this.chatContext = chatContext;
         this.systemTools = systemTools;
         this.gmailService = gmailService;
+        this.memoryTool = memoryTool;
         this.chatRepository = chatRepository;
     }
 
     public Flux<String> chat(AgentRequest request, Long chatId) throws IOException {
 
         if (request.prompt().equalsIgnoreCase("bye")) {
-            memoryService.updateMemory();
+            memoryService.updateMemory(chatContext.getId());
             return Flux.just("Goodbye! Memory updated. See you next time.");
         }
 
         Chat chat = chatRepository.findById(chatId).orElseThrow();
-
+        chatContext.setId(chatId);
         // Save user message immediately
         ChatMessage userMessage = new ChatMessage();
         userMessage.setMessage(request.prompt());
@@ -117,7 +123,9 @@ public class LLMService {
                                                 fileTools,
                                                 shellTools,
                                                 systemTools,
-                                                gmailService
+                                                gmailService,
+                                                memoryTool
+
                                         )
                                 )
                                 .build()

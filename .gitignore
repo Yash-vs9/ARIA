@@ -8,7 +8,7 @@ aria.db
 
 # Environment variables
 .env
-
+nerve-sandbox
 # IntelliJ
 .idea/
 *.iml

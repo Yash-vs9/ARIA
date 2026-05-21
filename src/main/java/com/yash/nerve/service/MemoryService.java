@@ -1,7 +1,10 @@
 package com.yash.nerve.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yash.nerve.models.Chat;
+import com.yash.nerve.models.ChatMessage;
 import com.yash.nerve.models.Memory;
+import com.yash.nerve.repository.ChatRepository;
 import com.yash.nerve.repository.MemoryRepository;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
@@ -19,25 +22,28 @@ public class MemoryService {
     private final ChatModel chatModel;
     private final ConversationHistory conversationHistory;
     private final MemoryRepository memoryRepository;
-
+    private final ChatRepository chatRepository;
     public MemoryService(ObjectMapper objectMapper,
                          ChatModel chatModel,
                          ConversationHistory conversationHistory,
-                         MemoryRepository memoryRepository) {
+                         MemoryRepository memoryRepository, ChatRepository chatRepository) {
         this.objectMapper = objectMapper;
         this.chatModel = chatModel;
         this.conversationHistory = conversationHistory;
         this.memoryRepository = memoryRepository;
+        this.chatRepository = chatRepository;
     }
 
     public Memory loadMemory() throws IOException {
         return memoryRepository.readFile();
     }
 
-    public void updateMemory() throws IOException {
+    public void updateMemory(Long id) throws IOException {
         Memory currentMemory = loadMemory();
-        List<Message> messages = conversationHistory.getLastN();
-        String promptText = buildExtractionPrompt(currentMemory, messages);
+        Chat chat=chatRepository.findById(id).orElseThrow();
+        List<ChatMessage> messages1=chat.getMessages();
+
+        String promptText = buildExtractionPrompt(currentMemory, messages1);
 
         int maxRetries = 3;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -77,7 +83,7 @@ public class MemoryService {
         }
     }
 
-    private String buildExtractionPrompt(Memory currentMemory, List<Message> messages) {
+    private String buildExtractionPrompt(Memory currentMemory, List<ChatMessage> messages) {
         return """
                 You are a JSON extraction agent.
                 
@@ -103,14 +109,20 @@ public class MemoryService {
                 """.formatted(currentMemory, formatMessages(messages));
     }
 
-    private String formatMessages(List<Message> messages) {
+    private String formatMessages(List<ChatMessage> messages) {
+
         StringBuilder sb = new StringBuilder();
-        for (Message message : messages) {
-            sb.append(message.getMessageType())
+
+        for (ChatMessage message : messages) {
+
+            sb.append(message.getRole())
                     .append(": ")
-                    .append(message.getText())
+                    .append(message.getMessage())
                     .append("\n");
         }
-        return sb.isEmpty() ? "No conversation yet." : sb.toString();
+
+        return sb.isEmpty()
+                ? "No conversation yet."
+                : sb.toString();
     }
 }
