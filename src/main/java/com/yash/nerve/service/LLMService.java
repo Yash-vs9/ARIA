@@ -31,19 +31,21 @@ public class LLMService {
     private final FileTools fileTools;
     private final ShellTools shellTools;
     private final SystemTools systemTools;
+    private final GmailService gmailService;
 
     public LLMService(MemoryService memoryService,
                       ChatModel chatModel,
                       ConversationHistory conversationHistory,
                       FileTools fileTools,
                       ShellTools shellTools,
-                      SystemTools systemTools) {
+                      SystemTools systemTools, GmailService gmailService) {
         this.memoryService = memoryService;
         this.chatModel = chatModel;
         this.conversationHistory = conversationHistory;
         this.fileTools = fileTools;
         this.shellTools = shellTools;
         this.systemTools = systemTools;
+        this.gmailService = gmailService;
     }
 
     public Flux<String> chat(AgentRequest request) throws IOException {
@@ -80,7 +82,7 @@ public class LLMService {
         // Pass all tools — Gemini handles tool calling reliably
         ChatResponse response = chatModel.call(
                 new Prompt(messages, ToolCallingChatOptions.builder()
-                        .toolCallbacks(ToolCallbacks.from(fileTools, shellTools, systemTools))
+                        .toolCallbacks(ToolCallbacks.from(fileTools, shellTools, systemTools,gmailService))
                         .build())
         );
 

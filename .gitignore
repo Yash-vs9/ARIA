@@ -1,0 +1,20 @@
+# Google OAuth credentials
+credentials.json
+tokens/
+
+# Local data files
+memory.json
+aria.db
+
+# Environment variables
+.env
+
+# IntelliJ
+.idea/
+*.iml
+
+# Maven
+target/
+
+# OS files
+.DS_Store

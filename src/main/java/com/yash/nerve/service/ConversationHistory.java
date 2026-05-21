@@ -12,7 +12,7 @@ import java.util.List;
 @Component
 public class ConversationHistory {
     private List<Message> history=new ArrayList<>();
-    public static final int MAX_LEN=4;
+    public static final int MAX_LEN=30;
 
     public void addUserMessage(String content){
         history.add(new UserMessage(content));
@@ -23,11 +23,9 @@ public class ConversationHistory {
     public void clear(){
         this.history.clear();
     }
-    public List<Message> getLastN(){
-        int size=history.size();
-        if(size<MAX_LEN){
-            return history;
-        }
-        return history.subList(size-MAX_LEN,size);
+    public List<Message> getLastN() {
+        int size = history.size();
+        if (size <= MAX_LEN) return new ArrayList<>(history);
+        return new ArrayList<>(history.subList(size - MAX_LEN, size));
     }
 }
