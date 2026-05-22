@@ -33,152 +33,349 @@ public class GoogleCalendarService {
 
     @PostConstruct
     public void init() throws Exception {
-        NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-        // Reuse same credential from GmailService — no separate OAuth needed
+
+        NetHttpTransport transport =
+                GoogleNetHttpTransport.newTrustedTransport();
+
         Credential credential = gmailService.getCredential();
-        calendar = new Calendar.Builder(transport, JSON_FACTORY, credential)
+
+        calendar = new Calendar.Builder(
+                transport,
+                JSON_FACTORY,
+                credential
+        )
                 .setApplicationName(APPLICATION_NAME)
                 .build();
-        System.out.println("✅ Google Calendar service initialized");
+
+        System.out.println("Google Calendar initialized");
     }
 
-    @Tool(description = "Get today's calendar events. Returns list of meetings and events scheduled for today.")
+    private LocalDateTime parseDateTime(String date, String time) {
+        return LocalDateTime.parse(
+                date + "T" + time,
+                DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
+        );
+    }
+
+    private EventDateTime buildEventDateTime(LocalDateTime dateTime) {
+
+        return new EventDateTime()
+                .setDateTime(
+                        new DateTime(
+                                Date.from(
+                                        dateTime.atZone(
+                                                ZoneId.systemDefault()
+                                        ).toInstant()
+                                )
+                        )
+                )
+                .setTimeZone(
+                        ZoneId.systemDefault().toString()
+                );
+    }
+
+    @Tool(description = """
+            Create a calendar event.
+            Use for reminders, appointments, tasks, birthdays,
+            interviews, deadlines, or personal events.
+            Does NOT create a Google Meet link.
+            """)
+    public String createEvent(
+            String title,
+            String date,
+            String time,
+            int durationMinutes
+    ) {
+
+        try {
+
+            LocalDateTime startTime =
+                    parseDateTime(date, time);
+
+            LocalDateTime endTime =
+                    startTime.plusMinutes(durationMinutes);
+
+            Event event = new Event()
+                    .setSummary(title)
+                    .setStart(buildEventDateTime(startTime))
+                    .setEnd(buildEventDateTime(endTime));
+
+            Event created =
+                    calendar.events()
+                            .insert("primary", event)
+                            .execute();
+
+            return """
+                    Event created successfully
+
+                    Event Id: %s
+                    Title: %s
+                    Date: %s
+                    Time: %s
+                    """
+                    .formatted(
+                            created.getId(),
+                            title,
+                            date,
+                            time
+                    );
+
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = """
+            Create a Google Meet meeting and invite attendees.
+            Generates a Google Meet link automatically.
+            """)
+    public String createMeetMeeting(
+            String title,
+            String date,
+            String time,
+            int durationMinutes,
+            String attendeeEmail
+    ) {
+
+        try {
+
+            LocalDateTime startTime =
+                    parseDateTime(date, time);
+
+            LocalDateTime endTime =
+                    startTime.plusMinutes(durationMinutes);
+
+            Event event = new Event()
+                    .setSummary(title)
+                    .setStart(buildEventDateTime(startTime))
+                    .setEnd(buildEventDateTime(endTime));
+
+            EventAttendee attendee =
+                    new EventAttendee()
+                            .setEmail(attendeeEmail);
+
+            event.setAttendees(
+                    Arrays.asList(attendee)
+            );
+
+            ConferenceData conferenceData =
+                    new ConferenceData();
+
+            CreateConferenceRequest conferenceRequest =
+                    new CreateConferenceRequest();
+
+            conferenceRequest.setRequestId(
+                    "meet-" + System.currentTimeMillis()
+            );
+
+            conferenceData.setCreateRequest(
+                    conferenceRequest
+            );
+
+            event.setConferenceData(
+                    conferenceData
+            );
+
+            Event created =
+                    calendar.events()
+                            .insert("primary", event)
+                            .setConferenceDataVersion(1)
+                            .execute();
+
+            return """
+                    Google Meet created successfully
+
+                    Event Id: %s
+                    Meet Link: %s
+                    Attendee: %s
+                    """
+                    .formatted(
+                            created.getId(),
+                            created.getHangoutLink(),
+                            attendeeEmail
+                    );
+
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = """
+            Get all events scheduled for today.
+            """)
     public String getTodayEvents() {
+
         try {
+
             DateTime startOfDay = new DateTime(
-                    Date.from(LocalDateTime.now().toLocalDate()
-                            .atStartOfDay(ZoneId.systemDefault()).toInstant())
+                    Date.from(
+                            LocalDateTime.now()
+                                    .toLocalDate()
+                                    .atStartOfDay(
+                                            ZoneId.systemDefault()
+                                    )
+                                    .toInstant()
+                    )
             );
+
             DateTime endOfDay = new DateTime(
-                    Date.from(LocalDateTime.now().toLocalDate()
-                            .plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant())
+                    Date.from(
+                            LocalDateTime.now()
+                                    .toLocalDate()
+                                    .plusDays(1)
+                                    .atStartOfDay(
+                                            ZoneId.systemDefault()
+                                    )
+                                    .toInstant()
+                    )
             );
 
-            Events events = calendar.events().list("primary")
-                    .setTimeMin(startOfDay)
-                    .setTimeMax(endOfDay)
-                    .setOrderBy("startTime")
-                    .setSingleEvents(true)
-                    .execute();
+            Events events =
+                    calendar.events()
+                            .list("primary")
+                            .setTimeMin(startOfDay)
+                            .setTimeMax(endOfDay)
+                            .setSingleEvents(true)
+                            .setOrderBy("startTime")
+                            .execute();
 
-            List<Event> items = events.getItems();
-            if (items.isEmpty()) return "No events scheduled for today.";
-
-            StringBuilder result = new StringBuilder("Today's events:\n\n");
-            for (Event event : items) {
-                String start = event.getStart().getDateTime() != null
-                        ? event.getStart().getDateTime().toString()
-                        : event.getStart().getDate().toString();
-                result.append("📅 ").append(event.getSummary()).append("\n");
-                result.append("   Time: ").append(start).append("\n");
-                if (event.getHangoutLink() != null) {
-                    result.append("   Meet: ").append(event.getHangoutLink()).append("\n");
-                }
-                result.append("\n");
+            if (events.getItems().isEmpty()) {
+                return "No events scheduled today.";
             }
-            return result.toString();
+
+            StringBuilder sb =
+                    new StringBuilder("Today's Events\n\n");
+
+            for (Event event : events.getItems()) {
+
+                sb.append("ID: ")
+                        .append(event.getId())
+                        .append("\n");
+
+                sb.append("Title: ")
+                        .append(event.getSummary())
+                        .append("\n\n");
+            }
+
+            return sb.toString();
 
         } catch (Exception e) {
-            return "Error fetching events: " + e.getMessage();
+            return "ERROR: " + e.getMessage();
         }
     }
 
-    @Tool(description = "Create a Google Meet meeting. Provide title, date (YYYY-MM-DD), time (HH:MM), duration in minutes, and attendee email.")
-    public String createMeeting(String title, String date, String time,
-                                int durationMinutes, String attendeeEmail) {
-        try {
-            // Parse date and time
-            LocalDateTime startDateTime = LocalDateTime.parse(
-                    date + "T" + time,
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
-            );
-            LocalDateTime endDateTime = startDateTime.plusMinutes(durationMinutes);
-
-            // Build event
-            Event event = new Event().setSummary(title);
-
-            // Set start time
-            EventDateTime start = new EventDateTime()
-                    .setDateTime(new DateTime(
-                            Date.from(startDateTime.atZone(ZoneId.systemDefault()).toInstant())
-                    ))
-                    .setTimeZone(ZoneId.systemDefault().toString());
-            event.setStart(start);
-
-            // Set end time
-            EventDateTime end = new EventDateTime()
-                    .setDateTime(new DateTime(
-                            Date.from(endDateTime.atZone(ZoneId.systemDefault()).toInstant())
-                    ))
-                    .setTimeZone(ZoneId.systemDefault().toString());
-            event.setEnd(end);
-
-            // Add attendee
-            EventAttendee attendee = new EventAttendee().setEmail(attendeeEmail);
-            event.setAttendees(Arrays.asList(attendee));
-
-            // Add Google Meet conference
-            ConferenceData conferenceData = new ConferenceData();
-            CreateConferenceRequest conferenceRequest = new CreateConferenceRequest();
-            conferenceRequest.setRequestId("meet-" + System.currentTimeMillis());
-            conferenceData.setCreateRequest(conferenceRequest);
-            event.setConferenceData(conferenceData);
-
-            // Insert event
-            Event createdEvent = calendar.events().insert("primary", event)
-                    .setConferenceDataVersion(1)
-                    .execute();
-
-            String meetLink = createdEvent.getHangoutLink();
-            return "✅ Meeting created successfully!\n" +
-                    "Title: " + title + "\n" +
-                    "Date: " + date + " at " + time + "\n" +
-                    "Duration: " + durationMinutes + " minutes\n" +
-                    "Attendee: " + attendeeEmail + "\n" +
-                    "Meet Link: " + (meetLink != null ? meetLink : "No Meet link generated");
-
-        } catch (Exception e) {
-            return "Error creating meeting: " + e.getMessage();
-        }
-    }
-
-    @Tool(description = "Get upcoming calendar events for the next N days.")
+    @Tool(description = """
+            Get upcoming events for the next specified number of days.
+            """)
     public String getUpcomingEvents(int days) {
+
         try {
-            DateTime now = new DateTime(new Date());
-            DateTime future = new DateTime(
-                    Date.from(LocalDateTime.now().plusDays(days)
-                            .atZone(ZoneId.systemDefault()).toInstant())
-            );
 
-            Events events = calendar.events().list("primary")
-                    .setTimeMin(now)
-                    .setTimeMax(future)
-                    .setOrderBy("startTime")
-                    .setSingleEvents(true)
-                    .execute();
+            DateTime now =
+                    new DateTime(new Date());
 
-            List<Event> items = events.getItems();
-            if (items.isEmpty()) return "No upcoming events in the next " + days + " days.";
+            DateTime future =
+                    new DateTime(
+                            Date.from(
+                                    LocalDateTime.now()
+                                            .plusDays(days)
+                                            .atZone(
+                                                    ZoneId.systemDefault()
+                                            )
+                                            .toInstant()
+                            )
+                    );
 
-            StringBuilder result = new StringBuilder();
-            result.append("Upcoming events (next ").append(days).append(" days):\n\n");
+            Events events =
+                    calendar.events()
+                            .list("primary")
+                            .setTimeMin(now)
+                            .setTimeMax(future)
+                            .setSingleEvents(true)
+                            .setOrderBy("startTime")
+                            .execute();
 
-            for (Event event : items) {
-                String start = event.getStart().getDateTime() != null
-                        ? event.getStart().getDateTime().toString()
-                        : event.getStart().getDate().toString();
-                result.append("📅 ").append(event.getSummary()).append("\n");
-                result.append("   ").append(start).append("\n");
-                if (event.getHangoutLink() != null) {
-                    result.append("   Meet: ").append(event.getHangoutLink()).append("\n");
-                }
-                result.append("\n");
+            if (events.getItems().isEmpty()) {
+                return "No upcoming events found.";
             }
-            return result.toString();
+
+            StringBuilder sb =
+                    new StringBuilder();
+
+            for (Event event : events.getItems()) {
+
+                sb.append("ID: ")
+                        .append(event.getId())
+                        .append("\n");
+
+                sb.append("Title: ")
+                        .append(event.getSummary())
+                        .append("\n");
+
+                sb.append("-----------------\n");
+            }
+
+            return sb.toString();
 
         } catch (Exception e) {
-            return "Error fetching upcoming events: " + e.getMessage();
+            return "ERROR: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = """
+            Search events by title keyword.
+            Returns matching event IDs.
+            """)
+    public String findEvents(String keyword) {
+
+        try {
+
+            Events events =
+                    calendar.events()
+                            .list("primary")
+                            .setQ(keyword)
+                            .execute();
+
+            if (events.getItems().isEmpty()) {
+                return "No matching events found.";
+            }
+
+            StringBuilder sb =
+                    new StringBuilder();
+
+            for (Event event : events.getItems()) {
+
+                sb.append("ID: ")
+                        .append(event.getId())
+                        .append("\n");
+
+                sb.append("Title: ")
+                        .append(event.getSummary())
+                        .append("\n\n");
+            }
+
+            return sb.toString();
+
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = """
+            Delete a calendar event using its event ID.
+            """)
+    public String deleteEvent(String eventId) {
+
+        try {
+
+            calendar.events()
+                    .delete("primary", eventId)
+                    .execute();
+
+            return "Event deleted successfully.";
+
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
         }
     }
 }

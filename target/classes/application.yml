@@ -31,3 +31,6 @@ nerve:
     path: ./memory.json
   sandbox:
     path: /Users/yash/nerve-sandbox/workspace
+
+serpapi:
+  api-key: ${SERP_API_KEY}

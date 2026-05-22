@@ -27,6 +27,11 @@ Update long-term memory with important user information such as:
 - personal facts the user wants remembered
 """)
     public void updateMemory() throws IOException {
-        memoryService.updateMemory(chatContext.getId());
+        try{
+            memoryService.updateMemory(chatContext.getId());
+        }
+        catch (Exception ex){
+            ex.getMessage();
+        }
     }
 }

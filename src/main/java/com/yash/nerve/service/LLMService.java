@@ -7,10 +7,7 @@ import com.yash.nerve.models.Chat;
 import com.yash.nerve.models.ChatMessage;
 import com.yash.nerve.models.Memory;
 import com.yash.nerve.repository.ChatRepository;
-import com.yash.nerve.tools.FileTools;
-import com.yash.nerve.tools.MemoryTool;
-import com.yash.nerve.tools.ShellTools;
-import com.yash.nerve.tools.SystemTools;
+import com.yash.nerve.tools.*;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -38,6 +35,8 @@ public class LLMService {
     private final ConversationHistory conversationHistory;
     private final FileTools fileTools;
     private final ShellTools shellTools;
+    private final GoogleSearchTool googleSearchTool;
+    private final WebContentTool webContentTool;
     private final ChatContext chatContext;
     private final GoogleCalendarService googleCalendarService;
     private final SystemTools systemTools;
@@ -48,13 +47,15 @@ public class LLMService {
                       ChatModel chatModel,
                       ConversationHistory conversationHistory,
                       FileTools fileTools,
-                      ShellTools shellTools, ChatContext chatContext, GoogleCalendarService googleCalendarService,
+                      ShellTools shellTools, GoogleSearchTool googleSearchTool, WebContentTool webContentTool, ChatContext chatContext, GoogleCalendarService googleCalendarService,
                       SystemTools systemTools, GmailService gmailService, MemoryTool memoryTool, ChatRepository chatRepository) {
         this.memoryService = memoryService;
         this.chatModel = chatModel;
         this.conversationHistory = conversationHistory;
         this.fileTools = fileTools;
         this.shellTools = shellTools;
+        this.googleSearchTool = googleSearchTool;
+        this.webContentTool = webContentTool;
         this.chatContext = chatContext;
         this.googleCalendarService = googleCalendarService;
         this.systemTools = systemTools;
@@ -127,7 +128,9 @@ public class LLMService {
                                                 systemTools,
                                                 gmailService,
                                                 memoryTool,
-                                                googleCalendarService
+                                                googleCalendarService,
+                                                webContentTool,
+                                                googleSearchTool
 
                                         )
                                 )

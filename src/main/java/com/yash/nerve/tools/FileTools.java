@@ -9,6 +9,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 @Component
 public class FileTools {
@@ -24,40 +25,60 @@ public class FileTools {
             - Tasks/daily_tasks.txt
             """)
     public String writeIntoFile(String path, String content) throws IOException {
+        try{
 
-        Path sandboxRoot = Path.of(sandboxPath)
-                .toAbsolutePath()
-                .normalize();
+            if(path.equals("")){
+                throw  new IllegalArgumentException("Path can not be empty string");
+            }
+            Path sandboxRoot = Path.of(sandboxPath)
+                    .toAbsolutePath()
+                    .normalize();
 
-        Path filePath = sandboxRoot
-                .resolve(path)
-                .normalize();
+            Path filePath = sandboxRoot
+                    .resolve(path)
+                    .normalize();
 
-        if (!filePath.startsWith(sandboxRoot)) {
-            throw new RuntimeException("Access denied");
+            if (!filePath.startsWith(sandboxRoot)) {
+                throw new SecurityException("Access denied");
+            }
+
+            Files.createDirectories(filePath.getParent());
+            Files.writeString(filePath, content);
+
+            return "File written to: " + filePath;
         }
-
-        Files.createDirectories(filePath.getParent());
-        Files.writeString(filePath, content);
-
-        return "File written to: " + filePath;
+        catch(Exception ex){
+            return ex.getMessage();
+        }
     }
 
     @Tool(description = "Read and return the contents of a text file from the sandbox workspace.")
     public String readFile(String path) throws IOException {
+        try{
 
-        Path sandboxRoot = Path.of(sandboxPath)
-                .toAbsolutePath()
-                .normalize();
+            Path sandboxRoot = Path.of(sandboxPath)
+                    .toAbsolutePath()
+                    .normalize();
 
-        Path filePath = sandboxRoot
-                .resolve(path)
-                .normalize();
+            Path filePath = sandboxRoot
+                    .resolve(path)
+                    .normalize();
 
-        if (!filePath.startsWith(sandboxRoot)) {
-            throw new RuntimeException("Access denied");
+            if (!filePath.startsWith(sandboxRoot)) {
+                throw new SecurityException("Access denied");
+            }
+
+            return Files.readString(filePath);
+        }
+        catch (NoSuchFileException ex){
+            return ex.getMessage();
+        }
+        catch (SecurityException ex){
+            return ex.getMessage();
+        }
+        catch (Exception ex){
+            return ex.getMessage();
         }
 
-        return Files.readString(filePath);
     }
 }
