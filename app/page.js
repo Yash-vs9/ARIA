@@ -9,46 +9,101 @@ import {
   Cpu,
   User,
   Zap,
-  Terminal,
-  CheckCircle2,
-  Database,
+  Plus,
+  MessageSquare,
   Loader2
 } from 'lucide-react';
 
+const API_BASE = "http://localhost:8080";
+
 export default function App() {
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome',
-      role: 'ai',
-      content: 'System initialized. NERVE (Llama 3.2 3B) is online and connected to local environment. How can I assist you today?',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  ]);
+  const [chats, setChats] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [tasks, setTasks] = useState([
-    { id: 1, text: 'Loaded memory.json', status: 'done', icon: <Database size={14} /> },
-    { id: 2, text: 'ConversationHistory initialized', status: 'done', icon: <CheckCircle2 size={14} /> },
-    { id: 3, text: 'Ollama model loaded', status: 'done', icon: <Cpu size={14} /> },
-  ]);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
-  };
+  useEffect(() => {
+    fetchChats();
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    if (activeChatId) {
+      fetchMessages(activeChatId);
+    }
+  }, [activeChatId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
   }, [messages]);
+
+  const fetchChats = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/chat/findChats`);
+      if (!response.ok) throw new Error('Failed to fetch chats');
+      const data = await response.json();
+      setChats(data);
+      if (data.length > 0 && !activeChatId) {
+        setActiveChatId(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching chats:', error);
+    } finally {
+      setIsLoadingChats(false);
+    }
+  };
+
+  const fetchMessages = async (chatId) => {
+    setIsLoadingMessages(true);
+    try {
+      const response = await fetch(`${API_BASE}/chat/messages?id=${chatId}`);
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      const data = await response.json();
+      const formattedMessages = data.map(msg => ({
+        id: msg.id.toString(),
+        role: msg.role === 'USER' ? 'user' : 'ai',
+        content: msg.message,
+        timestamp: msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+      }));
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      setMessages([]);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  const createNewChat = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/chat/newChat`);
+      if (!response.ok) throw new Error('Failed to create chat');
+      const newChatId = await response.json();
+      await fetchChats();
+      setActiveChatId(newChatId);
+      setMessages([]);
+    } catch (error) {
+      console.error('Error creating chat:', error);
+    }
+  };
+
+  const handleSelectChat = (chatId) => {
+    if (chatId !== activeChatId && !isStreaming) {
+      setActiveChatId(chatId);
+    }
+  };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!inputValue.trim() || isStreaming) return;
+    if (!inputValue.trim() || isStreaming || !activeChatId) return;
 
     const userMessage = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       role: 'user',
       content: inputValue.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -71,7 +126,7 @@ export default function App() {
     setIsStreaming(true);
 
     try {
-      const response = await fetch("http://localhost:8080/chat/ollama/stream", {
+      const response = await fetch(`${API_BASE}/chat/ollama/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,12 +175,7 @@ export default function App() {
         }
       }
 
-      setTasks(prev => [{
-        id: Date.now(),
-        text: 'Stream complete',
-        status: 'done',
-        icon: <CheckCircle2 size={14} />
-      }, ...prev]);
+      fetchChats();
 
     } catch (error) {
       console.error("Error:", error);
@@ -146,35 +196,73 @@ export default function App() {
     }
   };
 
+  const getChatTitle = (chat) => {
+    return chat.title || `Chat ${chat.id}`;
+  };
+
   return (
     <div className="app-container">
-      {/* Header */}
-      <header className="header">
-        <div className="header-brand">
-          <div className="header-logo">
-            <Zap size={18} />
+      <aside className="sidebar-left">
+        <div className="sidebar-header-left">
+          <div className="brand">
+            <div className="brand-logo">
+              <Zap size={16} />
+            </div>
+            <span className="brand-name">NERVE</span>
           </div>
-          <div className="header-text">
-            <h1 className="header-title">NERVE</h1>
-            <p className="header-subtitle">Local Orchestrator</p>
-          </div>
+          <button onClick={createNewChat} className="new-chat-btn" title="New Chat">
+            <Plus size={18} />
+          </button>
         </div>
-        <div className="header-status">
-          <span className="status-dot"></span>
-          <span className="status-text">Llama 3.2 3B</span>
-        </div>
-      </header>
 
-      {/* Main Container */}
-      <div className="main-container">
-        {/* Chat Panel */}
-        <main className="chat-panel">
-          <div className="messages-container">
-            {messages.map((msg) => (
+        <div className="chat-list">
+          {isLoadingChats ? (
+            <div className="loading-state">
+              <Loader2 size={20} className="spin" />
+            </div>
+          ) : chats.length === 0 ? (
+            <div className="empty-state">
+              <p>No chats yet</p>
+              <button onClick={createNewChat} className="empty-new-btn">
+                Start a new chat
+              </button>
+            </div>
+          ) : (
+            chats.map((chat) => (
+              <button
+                key={chat.id}
+                onClick={() => handleSelectChat(chat.id)}
+                className={`chat-item ${activeChatId === chat.id ? 'chat-item-active' : ''}`}
+              >
+                <MessageSquare size={16} />
+                <span className="chat-item-title">{getChatTitle(chat)}</span>
+              </button>
+            ))
+          )}
+        </div>
+
+        
+      </aside>
+
+      <main className="chat-main">
+        <div className="messages-container">
+          {isLoadingMessages ? (
+            <div className="loading-state-messages">
+              <Loader2 size={24} className="spin" />
+              <p>Loading messages...</p>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="empty-chat">
+              <div className="empty-chat-icon">
+                <Cpu size={32} />
+              </div>
+              <h2>Start a conversation</h2>
+              <p>Send a message to begin chatting with NERVE</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
               <div key={msg.id} className={`message-row ${msg.role === 'user' ? 'message-row-user' : 'message-row-ai'}`}>
                 <div className={`message-wrapper ${msg.role === 'user' ? 'message-wrapper-user' : 'message-wrapper-ai'}`}>
-                  
-                  {/* Avatar */}
                   <div className="avatar-container">
                     {msg.role === 'user' ? (
                       <div className="avatar avatar-user">
@@ -187,7 +275,6 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Message Bubble */}
                   <div className={`message-content ${msg.role === 'user' ? 'message-content-user' : 'message-content-ai'}`}>
                     <div className={`message-bubble ${msg.role === 'user' ? 'bubble-user' : 'bubble-ai'}`}>
                       {msg.role === 'user' ? (
@@ -242,68 +329,49 @@ export default function App() {
                           >
                             {msg.content}
                           </ReactMarkdown>
-                          {isStreaming && msg.id === messages[messages.length - 1].id && (
+                          {isStreaming && msg.id === messages[messages.length - 1].id && msg.role === 'ai' && (
                             <span className="typing-cursor"></span>
                           )}
                         </div>
                       )}
                     </div>
-                    <span className="message-time">{msg.timestamp}</span>
+                    {msg.timestamp && <span className="message-time">{msg.timestamp}</span>}
                   </div>
                 </div>
               </div>
-            ))}
-            <div ref={messagesEndRef} className="scroll-anchor" />
-          </div>
+            ))
+          )}
+          <div ref={messagesEndRef} className="scroll-anchor" />
+        </div>
 
-          {/* Input Box */}
-          <div className="input-container">
-            <div className="input-wrapper">
-              <form onSubmit={handleSubmit} className="input-form">
-                <textarea
-                  ref={inputRef}
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Give NERVE a task to execute..."
-                  className="input-textarea"
-                  rows={1}
-                />
-                <button
-                  type="submit"
-                  disabled={!inputValue.trim() || isStreaming}
-                  className="send-button"
-                >
-                  {isStreaming ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
-                </button>
-              </form>
-              <div className="input-hint">
-                <span>Enter to send &middot; Shift+Enter for new line</span>
-              </div>
+        <div className="input-container">
+          <div className="input-wrapper">
+            <form onSubmit={handleSubmit} className="input-form">
+              <textarea
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={activeChatId ? "Give NERVE a task to execute..." : "Create or select a chat to start..."}
+                className="input-textarea"
+                rows={1}
+                disabled={!activeChatId}
+              />
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || isStreaming || !activeChatId}
+                className="send-button"
+              >
+                {isStreaming ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
+              </button>
+            </form>
+            <div className="input-hint">
+              <span>Enter to send &middot; Shift+Enter for new line</span>
             </div>
           </div>
-        </main>
+        </div>
+      </main>
 
-        {/* Sidebar */}
-        <aside className="sidebar">
-          <div className="sidebar-header">
-            <Terminal size={15} />
-            <h2 className="sidebar-title">System Activity</h2>
-          </div>
-          <div className="sidebar-content">
-            {tasks.map((task, index) => (
-              <div key={task.id} className={`task-item ${index === 0 && isStreaming ? 'task-active' : ''}`}>
-                <div className="task-icon">
-                  {index === 0 && isStreaming ? <Loader2 size={14} className="spin" /> : task.icon}
-                </div>
-                <p className="task-text">{task.text}</p>
-              </div>
-            ))}
-          </div>
-        </aside>
-      </div>
-
-      {/* Styles */}
       <style dangerouslySetInnerHTML={{__html: `
         * {
           box-sizing: border-box;
@@ -315,35 +383,40 @@ export default function App() {
           position: fixed;
           inset: 0;
           display: flex;
-          flex-direction: column;
           background-color: #0a0a0a;
           color: #e5e5e5;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           overflow: hidden;
         }
 
-        /* Header */
-        .header {
+        .sidebar-left {
+          width: 260px;
+          display: flex;
+          flex-direction: column;
+          background-color: #0c0c0c;
+          border-right: 1px solid #1a1a1a;
+        }
+
+        .sidebar-header-left {
           flex: none;
           height: 56px;
-          border-bottom: 1px solid #1a1a1a;
-          background-color: #0f0f0f;
+          padding: 0 16px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 20px;
+          border-bottom: 1px solid #1a1a1a;
         }
 
-        .header-brand {
+        .brand {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
         }
 
-        .header-logo {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
+        .brand-logo {
+          width: 28px;
+          height: 28px;
+          border-radius: 6px;
           background-color: #fafafa;
           display: flex;
           align-items: center;
@@ -351,34 +424,130 @@ export default function App() {
           color: #0a0a0a;
         }
 
-        .header-text {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .header-title {
-          font-size: 15px;
+        .brand-name {
+          font-size: 14px;
           font-weight: 600;
           color: #fafafa;
           letter-spacing: 0.5px;
         }
 
-        .header-subtitle {
-          font-size: 10px;
-          color: #666;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          font-weight: 500;
+        .new-chat-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          background-color: #1a1a1a;
+          border: 1px solid #262626;
+          color: #a3a3a3;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s;
         }
 
-        .header-status {
+        .new-chat-btn:hover {
+          background-color: #262626;
+          color: #fafafa;
+        }
+
+        .chat-list {
+          flex: 1;
+          overflow-y: auto;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .loading-state {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 0;
+          color: #525252;
+        }
+
+        .empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 20px;
+          text-align: center;
+          gap: 12px;
+        }
+
+        .empty-state p {
+          color: #525252;
+          font-size: 13px;
+        }
+
+        .empty-new-btn {
+          padding: 8px 16px;
+          border-radius: 8px;
+          background-color: #1a1a1a;
+          border: 1px solid #262626;
+          color: #a3a3a3;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+
+        .empty-new-btn:hover {
+          background-color: #262626;
+          color: #fafafa;
+        }
+
+        .chat-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          background: transparent;
+          border: none;
+          color: #a3a3a3;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.15s;
+          text-align: left;
+          width: 100%;
+        }
+
+        .chat-item:hover {
+          background-color: #141414;
+          color: #e5e5e5;
+        }
+
+        .chat-item-active {
+          background-color: #1a1a1a;
+          color: #fafafa;
+        }
+
+        .chat-item-title {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .sidebar-footer {
+          flex: none;
+          padding: 12px 16px;
+          border-top: 1px solid #1a1a1a;
+        }
+
+        .status-badge {
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 6px 12px;
-          border-radius: 20px;
-          background-color: rgba(34, 197, 94, 0.1);
-          border: 1px solid rgba(34, 197, 94, 0.2);
+          padding: 8px 12px;
+          border-radius: 8px;
+          background-color: rgba(34, 197, 94, 0.08);
+          border: 1px solid rgba(34, 197, 94, 0.15);
+          font-size: 11px;
+          font-weight: 500;
+          color: #22c55e;
         }
 
         .status-dot {
@@ -388,21 +557,7 @@ export default function App() {
           background-color: #22c55e;
         }
 
-        .status-text {
-          font-size: 11px;
-          font-weight: 500;
-          color: #22c55e;
-        }
-
-        /* Main Container */
-        .main-container {
-          flex: 1;
-          display: flex;
-          overflow: hidden;
-        }
-
-        /* Chat Panel */
-        .chat-panel {
+        .chat-main {
           flex: 1;
           display: flex;
           flex-direction: column;
@@ -417,6 +572,55 @@ export default function App() {
           display: flex;
           flex-direction: column;
           gap: 20px;
+        }
+
+        .loading-state-messages {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          color: #525252;
+        }
+
+        .loading-state-messages p {
+          font-size: 13px;
+        }
+
+        .empty-chat {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          text-align: center;
+          padding: 40px;
+        }
+
+        .empty-chat-icon {
+          width: 64px;
+          height: 64px;
+          border-radius: 16px;
+          background-color: #141414;
+          border: 1px solid #1f1f1f;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #525252;
+          margin-bottom: 8px;
+        }
+
+        .empty-chat h2 {
+          font-size: 18px;
+          font-weight: 600;
+          color: #fafafa;
+        }
+
+        .empty-chat p {
+          font-size: 14px;
+          color: #525252;
         }
 
         .message-row {
@@ -435,7 +639,7 @@ export default function App() {
         .message-wrapper {
           display: flex;
           gap: 12px;
-          max-width: 80%;
+          max-width: 75%;
         }
 
         .message-wrapper-user {
@@ -467,8 +671,8 @@ export default function App() {
         }
 
         .avatar-ai {
-          background-color: #171717;
-          border: 1px solid #262626;
+          background-color: #141414;
+          border: 1px solid #1f1f1f;
           color: #fafafa;
         }
 
@@ -516,7 +720,6 @@ export default function App() {
           padding: 0 4px;
         }
 
-        /* Prose Styles */
         .prose-content {
           word-break: break-word;
         }
@@ -580,7 +783,6 @@ export default function App() {
           font-style: italic;
         }
 
-        /* Code Blocks */
         .code-block {
           margin: 12px 0;
           border-radius: 8px;
@@ -630,7 +832,6 @@ export default function App() {
           flex-shrink: 0;
         }
 
-        /* Input Area */
         .input-container {
           flex: none;
           padding: 16px 24px 24px;
@@ -676,6 +877,10 @@ export default function App() {
           color: #525252;
         }
 
+        .input-textarea:disabled {
+          cursor: not-allowed;
+        }
+
         .send-button {
           flex-shrink: 0;
           width: 40px;
@@ -714,101 +919,27 @@ export default function App() {
           color: #404040;
         }
 
-        /* Sidebar */
-        .sidebar {
-          width: 280px;
-          display: none;
-          flex-direction: column;
-          border-left: 1px solid #1a1a1a;
-          background-color: #0c0c0c;
-        }
-
-        @media (min-width: 768px) {
-          .sidebar {
-            display: flex;
-          }
-        }
-
-        .sidebar-header {
-          padding: 16px 20px;
-          border-bottom: 1px solid #1a1a1a;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          color: #737373;
-        }
-
-        .sidebar-title {
-          font-size: 11px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #737373;
-        }
-
-        .sidebar-content {
-          flex: 1;
-          overflow-y: auto;
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .task-item {
-          display: flex;
-          gap: 12px;
-          font-size: 12px;
-          padding: 12px;
-          border-radius: 10px;
-          background-color: #111;
-          border: 1px solid #1a1a1a;
-          color: #525252;
-          transition: all 0.2s;
-        }
-
-        .task-active {
-          background-color: rgba(34, 197, 94, 0.05);
-          border-color: rgba(34, 197, 94, 0.2);
-          color: #22c55e;
-        }
-
-        .task-active .task-icon {
-          color: #22c55e;
-        }
-
-        .task-icon {
-          flex-shrink: 0;
-          color: #404040;
-        }
-
-        .task-text {
-          font-weight: 500;
-        }
-
-        /* Scrollbar */
         .messages-container::-webkit-scrollbar,
-        .sidebar-content::-webkit-scrollbar {
+        .chat-list::-webkit-scrollbar {
           width: 6px;
         }
 
         .messages-container::-webkit-scrollbar-track,
-        .sidebar-content::-webkit-scrollbar-track {
+        .chat-list::-webkit-scrollbar-track {
           background: transparent;
         }
 
         .messages-container::-webkit-scrollbar-thumb,
-        .sidebar-content::-webkit-scrollbar-thumb {
+        .chat-list::-webkit-scrollbar-thumb {
           background-color: #262626;
           border-radius: 20px;
         }
 
         .messages-container::-webkit-scrollbar-thumb:hover,
-        .sidebar-content::-webkit-scrollbar-thumb:hover {
+        .chat-list::-webkit-scrollbar-thumb:hover {
           background-color: #333;
         }
 
-        /* Spin Animation */
         .spin {
           animation: spin 1s linear infinite;
         }
@@ -818,16 +949,27 @@ export default function App() {
           to { transform: rotate(360deg); }
         }
 
-        /* Responsive */
-        @media (max-width: 640px) {
-          .messages-container {
-            padding: 16px;
+        @media (max-width: 768px) {
+          .sidebar-left {
+            position: fixed;
+            left: -260px;
+            height: 100%;
+            z-index: 100;
+            transition: left 0.3s;
           }
-          
+
+          .sidebar-left.open {
+            left: 0;
+          }
+
           .message-wrapper {
             max-width: 90%;
           }
-          
+
+          .messages-container {
+            padding: 16px;
+          }
+
           .input-container {
             padding: 12px 16px 20px;
           }
