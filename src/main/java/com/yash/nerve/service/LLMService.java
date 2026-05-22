@@ -39,6 +39,7 @@ public class LLMService {
     private final FileTools fileTools;
     private final ShellTools shellTools;
     private final ChatContext chatContext;
+    private final GoogleCalendarService googleCalendarService;
     private final SystemTools systemTools;
     private final GmailService gmailService;
     private final MemoryTool memoryTool;
@@ -47,7 +48,7 @@ public class LLMService {
                       ChatModel chatModel,
                       ConversationHistory conversationHistory,
                       FileTools fileTools,
-                      ShellTools shellTools, ChatContext chatContext,
+                      ShellTools shellTools, ChatContext chatContext, GoogleCalendarService googleCalendarService,
                       SystemTools systemTools, GmailService gmailService, MemoryTool memoryTool, ChatRepository chatRepository) {
         this.memoryService = memoryService;
         this.chatModel = chatModel;
@@ -55,6 +56,7 @@ public class LLMService {
         this.fileTools = fileTools;
         this.shellTools = shellTools;
         this.chatContext = chatContext;
+        this.googleCalendarService = googleCalendarService;
         this.systemTools = systemTools;
         this.gmailService = gmailService;
         this.memoryTool = memoryTool;
@@ -124,7 +126,8 @@ public class LLMService {
                                                 shellTools,
                                                 systemTools,
                                                 gmailService,
-                                                memoryTool
+                                                memoryTool,
+                                                googleCalendarService
 
                                         )
                                 )

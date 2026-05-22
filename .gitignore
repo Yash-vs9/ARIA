@@ -5,7 +5,7 @@ tokens/
 # Local data files
 memory.json
 aria.db
-
+tokens
 # Environment variables
 .env
 nerve-sandbox

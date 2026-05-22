@@ -35,10 +35,17 @@ public class GmailService {
     private static final String APPLICATION_NAME = "ARIA";
     private static final GsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
     private static final String TOKENS_DIR = "tokens";
+    private Credential credential;
+
     private static final List<String> SCOPES = List.of(
             GmailScopes.GMAIL_READONLY,
-            GmailScopes.GMAIL_SEND
+            GmailScopes.GMAIL_SEND,
+            "https://www.googleapis.com/auth/calendar"
+
     );
+    public Credential getCredential() {
+        return credential;
+    }
 
     private Gmail gmail;
 
@@ -70,8 +77,9 @@ public class GmailService {
         LocalServerReceiver receiver = new LocalServerReceiver.Builder()
                 .setPort(8888)
                 .build();
+        this.credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
+        return this.credential;
 
-        return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
     }
 
     // Fetch unread emails
@@ -149,6 +157,7 @@ public class GmailService {
                 if (part.getMimeType().equals("text/plain") && part.getBody().getData() != null) {
                     byte[] decoded = Base64.getUrlDecoder().decode(part.getBody().getData());
                     return new String(decoded);
+
                 }
             }
         }
