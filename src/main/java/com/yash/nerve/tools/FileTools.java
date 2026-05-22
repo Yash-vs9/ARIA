@@ -26,10 +26,13 @@ public class FileTools {
             """)
     public String writeIntoFile(String path, String content) throws IOException {
         try{
-
-            if(path.equals("")){
-                throw  new IllegalArgumentException("Path can not be empty string");
+            if(path == null || path.isBlank()){
+                throw new IllegalArgumentException(
+                        "Path can not be empty string"
+                );
             }
+
+
             Path sandboxRoot = Path.of(sandboxPath)
                     .toAbsolutePath()
                     .normalize();
