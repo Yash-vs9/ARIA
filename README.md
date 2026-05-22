@@ -1,4 +1,4 @@
-# NERVE
+# ARIA
 
 > An AI agent platform built with Spring Boot, Spring AI, Gemini, and React that transforms natural language into executable workflows through memory, tool calling, and deterministic orchestration.
 
@@ -8,7 +8,7 @@
 
 ARIA is a production-oriented AI assistant designed to transform natural language requests into real-world actions.
 
-Rather than acting as a traditional chatbot, NERVE focuses on task execution through deterministic orchestration, tool calling, memory management, and structured AI interactions.
+Rather than acting as a traditional chatbot, ARIA focuses on task execution through deterministic orchestration, tool calling, memory management, and structured AI interactions.
 
 The project combines Spring Boot, Spring AI, Gemini, and a React frontend to build a practical AI agent capable of reasoning, using tools, maintaining context, and executing multi-step workflows.
 
@@ -402,6 +402,8 @@ nerve:
     path: ./memory.json
   sandbox:
     path: /Users/yash/nerve-sandbox/workspace
+serpapi:
+  api-key:${SERP_API_KEY}
 ```
 
 or configure Gemini according to the Spring AI version being used.
