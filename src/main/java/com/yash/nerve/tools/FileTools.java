@@ -74,10 +74,10 @@ public class FileTools {
             return Files.readString(filePath);
         }
         catch (NoSuchFileException ex){
-            return ex.getMessage();
+            return "File don't exist";
         }
         catch (SecurityException ex){
-            return ex.getMessage();
+            return "Illegal Path";
         }
         catch (Exception ex){
             return ex.getMessage();

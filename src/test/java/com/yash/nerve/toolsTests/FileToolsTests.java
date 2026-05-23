@@ -10,6 +10,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
+import java.io.StringReader;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith(MockitoExtension.class)
 public class FileToolsTests {
     private FileTools fileTools;
+
     @BeforeEach
     public void initialiseFileTools(){
         fileTools=new FileTools();
@@ -40,6 +43,13 @@ public class FileToolsTests {
         String content="test";
         String result=fileTools.writeIntoFile(path,content);
         assertTrue(result.contains("Path can not be empty string"));
-
+    }
+    @Test
+    public void readFileTest() throws IOException {
+        String path="./fold.txt";
+        String result=fileTools.readFile(path);
+        System.out.println(result);
+        assertFalse(Objects.equals(result, "File don't exist"));
+        assertFalse(Objects.equals(result, "Illegal Path"));
     }
 }
